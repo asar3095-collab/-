@@ -15,13 +15,48 @@ const classOptions = (selected="") => (role==="teacher"?teacherClasses():allClas
 const myTeacherRecord = item => item.teacher === name && (!item.teacherType || item.teacherType === teacherType);
 const currentStudent = () => allClasses().flatMap(c=>c.students.map(s=>({...s,className:c.name}))).find(s=>s.name.toLowerCase()===name.toLowerCase());
 const studentMatches = item => { const s=currentStudent(); if(!s) return false; return item.className===s.className && (!item.group || item.group==="Весь класс" || item.group===s.group) && (!item.student || item.student.toLowerCase()===name.toLowerCase()); };
-function enter() {
- name=$("#name").value.trim(); role=$("#role").value; teacherType=role==="teacher"?$("#teacherType").value:""; teacherSubjects=role==="teacher"?$("#teacherSubjects").value.split(",").map(x=>x.trim()).filter(Boolean):[]; if(!name)return;
+function openCabinet() {
  $("#login").classList.add("hidden"); $("#cabinet").classList.remove("hidden");
  $("#who").textContent=name+" · "+(role==="teacher"?teacherType:"Ученик");
  const menus=role==="teacher"?["Главная","Мои классы","Журнал оценок","Итоговые оценки","Домашние задания","Расписание"]:["Главная","Мои оценки","Итоговые оценки","Домашние задания","Расписание"];
  $("#nav").innerHTML=menus.map(x=>'<button data-page="'+x+'">'+x+"</button>").join("");
- document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>page(b.dataset.page)); page("Главная");
+ document.querySelectorAll("#nav button").forEach(btn=>btn.onclick=()=>page(btn.dataset.page)); page("Главная");
+}
+async function passwordHash(value) {
+ const data=new TextEncoder().encode(value);
+ const digest=await crypto.subtle.digest("SHA-256",data);
+ return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function handleAuth() {
+ role=$("#role").value;
+ if(role!=="teacher") {
+  name=$("#studentName").value.trim(); teacherType=""; teacherSubjects=[];
+  if(!name)return alert("Введите имя ученика.");
+  openCabinet(); return;
+ }
+ const username=$("#accountUsername").value.trim().toLowerCase();
+ const password=$("#accountPassword").value;
+ const mode=$("#teacherMode").value;
+ if(username.length<3)return alert("Логин должен содержать не менее 3 символов.");
+ if(password.length<6)return alert("Пароль должен содержать не менее 6 символов.");
+ if(!window.crypto?.subtle)return alert("Безопасная проверка пароля не поддерживается этим браузером. Обновите браузер.");
+ const accounts=get("teacherAccounts");
+ if(mode==="register") {
+  const fullName=$("#teacherFullName").value.trim();
+  if(!fullName)return alert("Введите имя и фамилию учителя.");
+  if(accounts.some(x=>x.username===username))return alert("Такой логин уже занят. Выберите другой.");
+  teacherType=$("#teacherType").value;
+  teacherSubjects=$("#teacherSubjects").value.split(",").map(x=>x.trim()).filter(Boolean);
+  const account={username,passwordHash:await passwordHash(password),name:fullName,teacherType,teacherSubjects};
+  accounts.push(account); put("teacherAccounts",accounts);
+  name=account.name;
+  alert("Регистрация завершена. Теперь можно входить по логину и паролю.");
+ } else {
+  const account=accounts.find(x=>x.username===username);
+  if(!account||account.passwordHash!==await passwordHash(password))return alert("Неверный логин или пароль.");
+  name=account.name; teacherType=account.teacherType; teacherSubjects=account.teacherSubjects||[];
+ }
+ openCabinet();
 }
 function empty(title,message){return '<div class="empty"><strong>'+safe(title)+'</strong>'+safe(message)+"</div>";}
 function groupOptions(className, includeAll=false) {
@@ -77,8 +112,16 @@ function page(p) {
  if(p==="Домашние задания"&&role==="teacher"&&$("#taskForm")){studentOptions("tClass","tUnused","tGroup");$("#tUnused").remove();$("#taskForm").onsubmit=e=>{e.preventDefault();const a=tasks();a.unshift({className:$("#tClass").value,group:$("#tGroup").value,subject:$("#tSubject").value.trim(),description:$("#tDescription").value.trim(),due:$("#tDue").value.trim(),teacher:name,teacherType,teacherSubjects});put("tasks",a);page(p);};}
  if(p==="Расписание"&&role==="teacher"&&$("#lessonForm")){const c=$("#lClass"),g=$("#lGroup");const fill=()=>g.innerHTML=groupOptions(c.value);c.onchange=fill;fill();$("#lessonForm").onsubmit=e=>{e.preventDefault();const a=lessons();a.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:c.value,group:g.value,subject:$("#lSubject").value.trim(),teacher:name,teacherType,teacherSubjects});put("lessons",a);page(p);};}
 }
-$("#role").onchange=()=>$("#teacherFields").classList.toggle("hidden",$("#role").value!=="teacher");
-$("#form").onsubmit=e=>{e.preventDefault();enter();};
+function updateAuthFields() {
+ const isTeacher=$("#role").value==="teacher";
+ $("#teacherFields").classList.toggle("hidden",!isTeacher);
+ $("#studentFields").classList.toggle("hidden",isTeacher);
+ if(isTeacher) $("#teacherRegisterFields").classList.toggle("hidden",$("#teacherMode").value!=="register");
+}
+$("#role").onchange=updateAuthFields;
+$("#teacherMode").onchange=updateAuthFields;
+$("#form").onsubmit=async e=>{e.preventDefault();try{await handleAuth();}catch(err){console.error(err);alert("Не удалось выполнить вход. Проверьте данные и попробуйте ещё раз.");}};
 $("#exit").onclick=()=>{$("#cabinet").classList.add("hidden");$("#login").classList.remove("hidden");};
 $("#theme").onclick=()=>{document.body.classList.toggle("dark");localStorage.setItem("diaryTheme",document.body.classList.contains("dark")?"dark":"light");};
+updateAuthFields();
 if(localStorage.getItem("diaryTheme")==="dark")document.body.classList.add("dark");
