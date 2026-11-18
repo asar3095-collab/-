@@ -82,13 +82,20 @@ async function handleAuth() {
  openCabinet();
 }
 function empty(title,message){return '<div class="empty"><strong>'+safe(title)+'</strong>'+safe(message)+"</div>";}
+function classSource() { return role==="teacher" ? teacherClasses() : allClasses(); }
 function groupOptions(className, includeAll=false) {
- const c=allClasses().find(x=>x.name===className); const groups=c?c.groups:["Общая"];
- return (includeAll?'<option>Весь класс</option>':"")+groups.map(g=>'<option>'+safe(g)+'</option>').join("");
+ const c=classSource().find(x=>x.name===className); const groups=c?c.groups:["Общая"];
+ return (includeAll?'<option value="Весь класс">Весь класс</option>':"")+groups.map(g=>'<option value="'+safe(g)+'">'+safe(g)+'</option>').join("");
 }
 function studentOptions(classId,studentId,groupId) {
  const c=$("#"+classId), s=$("#"+studentId), g=groupId?$("#"+groupId):null; if(!c||!s)return;
- const fill=()=>{const item=allClasses().find(x=>x.name===c.value); if(g)g.innerHTML=groupOptions(c.value,true); const grp=g?g.value:"Весь класс"; const people=item?item.students.filter(x=>!g||grp==="Весь класс"||grp==="Все"||x.group===grp):[]; s.innerHTML=people.length?people.map(x=>'<option>'+safe(x.name)+'</option>').join(""):'<option value="">Нет учеников в выбранной группе</option>';};
+ const fill=()=>{
+  const item=classSource().find(x=>x.name===c.value);
+  if(g)g.innerHTML=groupOptions(c.value,true);
+  const grp=g?g.value:"Весь класс";
+  const people=item?item.students.filter(x=>!g||grp==="Весь класс"||grp==="Все"||x.group===grp):[];
+  s.innerHTML=people.length?people.map(x=>'<option value="'+safe(x.name)+'">'+safe(x.name)+'</option>').join(""):'<option value="">Нет учеников в выбранной группе</option>';
+ };
  c.onchange=fill; if(g)g.onchange=fill; fill();
 }
 function gradeTable(list) {
