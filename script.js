@@ -32,7 +32,7 @@ function empty(title, message) {
 function gradeTable(list) {
   if (!list.length) return empty("Оценок пока нет", "Учитель ещё не добавил оценки.");
   return '<div class="card"><div class="table-wrap"><table class="grade-table"><thead><tr><th>Класс</th><th>Ученик</th><th>Предмет</th><th>Оценка</th><th>Кто поставил</th><th>Дата</th></tr></thead><tbody>' +
-    list.map(g => '<tr><td>' + safe(g.className) + '</td><td>' + safe(g.student) + '</td><td>' + safe(g.subject) + '</td><td class="grade">' + safe(g.mark) + '</td><td>' + safe(g.date || "") + "</td></tr>").join("") +
+    list.map(g => '<tr><td>' + safe(g.className) + '</td><td>' + safe(g.student) + '</td><td>' + safe(g.subject) + '</td><td class="grade">' + safe(g.mark) + '</td><td>' + safe(g.teacher || "Не указано") + '</td><td>' + safe(g.date || "") + "</td></tr>").join("") +
     "</tbody></table></div></div>";
 }
 function homeworkList(list) {
