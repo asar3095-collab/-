@@ -1,5 +1,5 @@
 const $ = s => document.querySelector(s);
-let role = "student", name = "";
+let role = "student", name = "", teacherType = "", teacherSubjects = [];
 const get = key => { try { return JSON.parse(localStorage.getItem("diary_" + key) || "[]"); } catch { return []; } };
 const put = (key, value) => localStorage.setItem("diary_" + key, JSON.stringify(value));
 const safe = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -11,12 +11,12 @@ const lessons = () => get("lessons");
 const normClass = c => ({...c, groups:Array.isArray(c.groups)&&c.groups.length?c.groups:["Общая"], students:(c.students||[]).map(s=>typeof s==="string"?{name:s,group:"Общая"}:s)});
 const allClasses = () => classes().map(normClass);
 const classOptions = (selected="") => allClasses().map(c=>'<option value="'+safe(c.name)+'"'+(c.name===selected?" selected":"")+'>'+safe(c.name)+'</option>').join("");
-const currentStudent = () => allClasses().flatMap(c=>c.students.map(s=>({...s,className:c.name}))).find(s=>s.name.toLowerCase()===name.toLowerCase());
+const myTeacherRecord = item => item.teacher === name && (!item.teacherType || item.teacherType === teacherType);\nconst currentStudent = () => allClasses().flatMap(c=>c.students.map(s=>({...s,className:c.name}))).find(s=>s.name.toLowerCase()===name.toLowerCase());
 const studentMatches = item => { const s=currentStudent(); if(!s) return false; return item.className===s.className && (!item.group || item.group==="Весь класс" || item.group===s.group) && (!item.student || item.student.toLowerCase()===name.toLowerCase()); };
 function enter() {
- name=$("#name").value.trim(); role=$("#role").value; if(!name)return;
+ name=$("#name").value.trim(); role=$("#role").value; teacherType=role==="teacher"?$("#teacherType").value:""; teacherSubjects=role==="teacher"?$("#teacherSubjects").value.split(",").map(x=>x.trim()).filter(Boolean):[]; if(!name)return;
  $("#login").classList.add("hidden"); $("#cabinet").classList.remove("hidden");
- $("#who").textContent=name+" · "+(role==="teacher"?"Учитель":"Ученик");
+ $("#who").textContent=name+" · "+(role==="teacher"?teacherType:"Ученик");
  const menus=role==="teacher"?["Главная","Мои классы","Журнал оценок","Итоговые оценки","Домашние задания","Расписание"]:["Главная","Мои оценки","Итоговые оценки","Домашние задания","Расписание"];
  $("#nav").innerHTML=menus.map(x=>'<button data-page="'+x+'">'+x+"</button>").join("");
  document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>page(b.dataset.page)); page("Главная");
@@ -50,30 +50,30 @@ function finalForm() {
 function page(p) {
  $("#title").textContent=p; document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));
  let out=""; const mine=currentStudent();
- if(p==="Главная") out='<div class="card"><h3>Здравствуйте, '+safe(name)+'!</h3><p class="muted">'+(role==="teacher"?"Вы вошли как учитель. При создании уроков, оценок и заданий указывайте класс и группу.":mine?"Ваш класс: "+safe(mine.className)+", группа: "+safe(mine.group)+".":"Ваше имя пока не найдено в списках учеников. Попросите учителя добавить вас в свой класс.")+'</p></div>';
+ if(p==="Главная") out='<div class="card"><h3>Здравствуйте, '+safe(name)+'!</h3><p class="muted">'+(role==="teacher"?"Профиль: '+safe(teacherType)+'. Ваши записи отображаются отдельно от записей других учителей. Предметы: '+safe(teacherSubjects.join(", ")||"укажите при создании записи")+'":mine?"Ваш класс: "+safe(mine.className)+", группа: "+safe(mine.group)+".":"Ваше имя пока не найдено в списках учеников. Попросите учителя добавить вас в свой класс.")+'</p></div>';
  else if(p==="Мои классы"&&role==="teacher") {
   out='<div class="card"><h3>Добавить класс и группы</h3><form id="classForm"><label>Название класса</label><input id="className" required placeholder="Например, 5 А"><label>Названия групп (через запятую)</label><input id="groupNames" placeholder="1 группа, 2 группа"><label>Ученики (каждый с новой строки; формат: Имя Фамилия | группа)</label><textarea id="studentNames" rows="6" placeholder="Анна Иванова | 1 группа&#10;Иван Петров | 2 группа"></textarea><button class="save">Создать класс</button></form></div>';
   out+=allClasses().map(c=>'<div class="card"><b>'+safe(c.name)+'</b><p>Группы: '+c.groups.map(safe).join(", ")+'</p>'+c.students.map(s=>'<div class="row">'+safe(s.name)+' <span class="muted">— '+safe(s.group)+'</span></div>').join("")+'</div>').join("")||empty("Классов пока нет","Создайте первый класс.");
  } else if(p==="Журнал оценок"||p==="Мои оценки") {
-  if(role==="teacher") out=(allClasses().length?'<div class="card"><h3>Выставить оценку</h3><form id="gradeForm"><label>Класс</label><select id="gClass">'+classOptions()+'</select><label>Группа</label><select id="gGroup"></select><label>Ученик</label><select id="gStudent"></select><label>Предмет</label><input id="gSubject" required><label>Оценка</label><select id="gMark"><option>5</option><option>4</option><option>3</option><option>2</option></select><button class="save">Выставить оценку</button></form></div>':empty("Нет классов","Сначала добавьте класс."))+gradeTable(grades());
+  if(role==="teacher") out=(allClasses().length?'<div class="card"><h3>Выставить оценку</h3><form id="gradeForm"><label>Класс</label><select id="gClass">'+classOptions()+'</select><label>Группа</label><select id="gGroup"></select><label>Ученик</label><select id="gStudent"></select><label>Предмет</label><input id="gSubject" required><label>Оценка</label><select id="gMark"><option>5</option><option>4</option><option>3</option><option>2</option></select><button class="save">Выставить оценку</button></form></div>':empty("Нет классов","Сначала добавьте класс."))+gradeTable(grades().filter(myTeacherRecord));
   else out=gradeTable(grades().filter(studentMatches));
  } else if(p==="Итоговые оценки") {
   if(role==="teacher")out=finalForm();
-  const list=role==="teacher"?finals():finals().filter(studentMatches);
+  const list=role==="teacher"?finals().filter(myTeacherRecord):finals().filter(studentMatches);
   out+=(list.length?'<div class="card"><h3>Итоговые оценки</h3>'+list.map(g=>'<div class="row">'+safe(g.className)+' · '+safe(g.student)+' · '+safe(g.subject)+' · '+safe(g.period)+' <b>'+safe(g.mark)+'</b><br><span class="muted">Выставил: '+safe(g.teacher)+'</span></div>').join("")+'</div>':empty("Итоговых оценок пока нет","Пока нет оценок для отображения."));
  } else if(p==="Домашние задания") {
   if(role==="teacher")out='<div class="card"><h3>Добавить домашнее задание</h3><form id="taskForm"><label>Класс</label><select id="tClass">'+classOptions()+'</select><label>Группа</label><select id="tGroup"></select><label>Предмет</label><input id="tSubject" required><label>Задание</label><textarea id="tDescription" rows="3" required></textarea><label>Срок сдачи</label><input id="tDue" placeholder="Например, 25 ноября"><button class="save">Добавить задание</button></form></div>';
-  const list=role==="teacher"?tasks():tasks().filter(studentMatches); out+=homeworkList(list);
+  const list=role==="teacher"?tasks().filter(myTeacherRecord):tasks().filter(studentMatches); out+=homeworkList(list);
  } else if(p==="Расписание") {
   if(role==="teacher")out='<div class="card"><h3>Добавить урок</h3><form id="lessonForm"><label>День недели</label><select id="lDay"><option>Понедельник</option><option>Вторник</option><option>Среда</option><option>Четверг</option><option>Пятница</option><option>Суббота</option></select><label>Время</label><input id="lTime" required placeholder="08:30"><label>Класс</label><select id="lClass">'+classOptions()+'</select><label>Группа</label><select id="lGroup"></select><label>Предмет</label><input id="lSubject" required><button class="save">Добавить урок</button></form></div>';
-  const list=role==="teacher"?lessons():lessons().filter(studentMatches); out+=scheduleList(list);
+  const list=role==="teacher"?lessons().filter(myTeacherRecord):lessons().filter(studentMatches); out+=scheduleList(list);
  }
  $("#content").innerHTML=out;
  if(p==="Мои классы"&&role==="teacher")$("#classForm").onsubmit=e=>{e.preventDefault();const nameClass=$("#className").value.trim();const gs=$("#groupNames").value.split(",").map(x=>x.trim()).filter(Boolean);const groups=gs.length?gs:["Общая"];const students=$("#studentNames").value.split("\n").map(line=>{const parts=line.split("|").map(x=>x.trim());return parts[0]?{name:parts[0],group:groups.includes(parts[1])?parts[1]:groups[0]}:null;}).filter(Boolean);const cs=classes();if(cs.some(c=>c.name.toLowerCase()===nameClass.toLowerCase()))return;cs.push({name:nameClass,groups,students});put("classes",cs);page(p);};
- if(p==="Журнал оценок"&&role==="teacher"&&$("#gradeForm")){studentOptions("gClass","gStudent","gGroup");$("#gradeForm").onsubmit=e=>{e.preventDefault();if(!$("#gStudent").value)return;const a=grades();a.unshift({className:$("#gClass").value,group:$("#gGroup").value,student:$("#gStudent").value,subject:$("#gSubject").value.trim(),mark:$("#gMark").value,teacher:name,date:new Date().toLocaleDateString("ru-RU")});put("grades",a);page(p);};}
- if(p==="Итоговые оценки"&&role==="teacher"&&$("#finalForm")){studentOptions("fClass","fStudent");$("#finalForm").onsubmit=e=>{e.preventDefault();if(!$("#fStudent").value)return;const a=finals();a.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,mark:$("#fMark").value,teacher:name});put("finals",a);page(p);};}
- if(p==="Домашние задания"&&role==="teacher"&&$("#taskForm")){studentOptions("tClass","tUnused","tGroup");$("#tUnused").remove();$("#taskForm").onsubmit=e=>{e.preventDefault();const a=tasks();a.unshift({className:$("#tClass").value,group:$("#tGroup").value,subject:$("#tSubject").value.trim(),description:$("#tDescription").value.trim(),due:$("#tDue").value.trim(),teacher:name});put("tasks",a);page(p);};}
- if(p==="Расписание"&&role==="teacher"&&$("#lessonForm")){const c=$("#lClass"),g=$("#lGroup");const fill=()=>g.innerHTML=groupOptions(c.value);c.onchange=fill;fill();$("#lessonForm").onsubmit=e=>{e.preventDefault();const a=lessons();a.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:c.value,group:g.value,subject:$("#lSubject").value.trim(),teacher:name});put("lessons",a);page(p);};}
+ if(p==="Журнал оценок"&&role==="teacher"&&$("#gradeForm")){studentOptions("gClass","gStudent","gGroup");$("#gradeForm").onsubmit=e=>{e.preventDefault();if(!$("#gStudent").value)return;const a=grades();a.unshift({className:$("#gClass").value,group:$("#gGroup").value,student:$("#gStudent").value,subject:$("#gSubject").value.trim(),mark:$("#gMark").value,teacher:name,teacherType,teacherSubjects,date:new Date().toLocaleDateString("ru-RU")});put("grades",a);page(p);};}
+ if(p==="Итоговые оценки"&&role==="teacher"&&$("#finalForm")){studentOptions("fClass","fStudent");$("#finalForm").onsubmit=e=>{e.preventDefault();if(!$("#fStudent").value)return;const a=finals();a.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,mark:$("#fMark").value,teacher:name,teacherType,teacherSubjects});put("finals",a);page(p);};}
+ if(p==="Домашние задания"&&role==="teacher"&&$("#taskForm")){studentOptions("tClass","tUnused","tGroup");$("#tUnused").remove();$("#taskForm").onsubmit=e=>{e.preventDefault();const a=tasks();a.unshift({className:$("#tClass").value,group:$("#tGroup").value,subject:$("#tSubject").value.trim(),description:$("#tDescription").value.trim(),due:$("#tDue").value.trim(),teacher:name,teacherType,teacherSubjects});put("tasks",a);page(p);};}
+ if(p==="Расписание"&&role==="teacher"&&$("#lessonForm")){const c=$("#lClass"),g=$("#lGroup");const fill=()=>g.innerHTML=groupOptions(c.value);c.onchange=fill;fill();$("#lessonForm").onsubmit=e=>{e.preventDefault();const a=lessons();a.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:c.value,group:g.value,subject:$("#lSubject").value.trim(),teacher:name,teacherType,teacherSubjects});put("lessons",a);page(p);};}
 }
 $("#form").onsubmit=e=>{e.preventDefault();enter();};
 $("#exit").onclick=()=>{$("#cabinet").classList.add("hidden");$("#login").classList.remove("hidden");};
