@@ -110,9 +110,16 @@ function scheduleList(list) {
  if(!list.length)return empty("Расписание пока не составлено","Для вашего класса и группы уроков пока нет.");
  return '<div class="card">'+list.map(l=>'<div class="row"><b>'+safe(l.day)+' · '+safe(l.time)+'</b><br>'+safe(l.className)+' · '+safe(l.group||"Весь класс")+' — '+safe(l.subject)+'<br><span class="muted">Учитель: '+safe(l.teacher||"Не указан")+'</span></div>').join("")+"</div>";
 }
+function markFromPoints(points) {
+ const n=Number(points);
+ if(n>=90)return 5;
+ if(n>=70)return 4;
+ if(n>=50)return 3;
+ return 2;
+}
 function finalForm() {
  if(!teacherClasses().length)return empty("Сначала добавьте класс","Создайте класс и внесите список учеников.");
- return '<div class="card"><h3>Выставить итоговую оценку</h3><form id="finalForm"><label>Класс</label><select id="fClass">'+classOptions()+'</select><label>Ученик</label><select id="fStudent"></select><label>Предмет</label><input id="fSubject" required placeholder="Например, математика"><label>Период</label><select id="fPeriod"><option>1 четверть</option><option>2 четверть</option><option>3 четверть</option><option>4 четверть</option><option>1 полугодие</option><option>2 полугодие</option><option>Годовая</option></select><label>Оценка</label><select id="fMark"><option>5</option><option>4</option><option>3</option><option>2</option></select><button class="save" type="submit">Сохранить</button></form></div>';
+ return '<div class="card"><h3>Выставить итоговую оценку</h3><form id="finalForm"><label>Класс</label><select id="fClass">'+classOptions()+'</select><label>Ученик</label><select id="fStudent"></select><label>Предмет</label><input id="fSubject" required placeholder="Например, математика"><label>Период</label><select id="fPeriod"><option>1 четверть</option><option>2 четверть</option><option>3 четверть</option><option>4 четверть</option><option>1 полугодие</option><option>2 полугодие</option><option>Годовая</option></select><label>Баллы (из 100)</label><input id="fPoints" type="number" min="0" max="100" step="1" required placeholder="Например, 85"><p id="fGradePreview" class="muted">Введите баллы, чтобы рассчитать итоговую оценку.</p><small>Шкала: 0–49 = 2 · 50–69 = 3 · 70–89 = 4 · 90–100 = 5</small><button class="save" type="submit">Сохранить итог</button></form></div>';
 }
 function page(p) {
  $("#title").textContent=p; document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));
@@ -127,7 +134,7 @@ function page(p) {
  } else if(p==="Итоговые оценки") {
   if(role==="teacher")out=finalForm();
   const list=role==="teacher"?finals().filter(myTeacherRecord):finals().filter(studentMatches);
-  out+=(list.length?'<div class="card"><h3>Итоговые оценки</h3>'+list.map(g=>'<div class="row">'+safe(g.className)+' · '+safe(g.student)+' · '+safe(g.subject)+' · '+safe(g.period)+' <b>'+safe(g.mark)+'</b><br><span class="muted">Выставил: '+safe(g.teacher)+'</span></div>').join("")+'</div>':empty("Итоговых оценок пока нет","Пока нет оценок для отображения."));
+  out+=(list.length?'<div class="card"><h3>Итоговые оценки</h3>'+list.map(g=>'<div class="row">'+safe(g.className)+' · '+safe(g.student)+' · '+safe(g.subject)+' · '+safe(g.period)+' <b>'+safe(g.mark)+'</b>'+(g.points!==undefined?' · '+safe(g.points)+'/100 баллов':'')+'<br><span class="muted">Выставил: '+safe(g.teacher)+'</span></div>').join("")+'</div>':empty("Итоговых оценок пока нет","Пока нет оценок для отображения."));
  } else if(p==="Домашние задания") {
   if(role==="teacher")out='<div class="card"><h3>Добавить домашнее задание</h3><form id="taskForm"><label>Класс</label><select id="tClass">'+classOptions()+'</select><label>Группа</label><select id="tGroup"></select><label>Предмет</label><input id="tSubject" required><label>Задание</label><textarea id="tDescription" rows="3" required></textarea><label>Срок сдачи</label><input id="tDue" placeholder="Например, 25 ноября"><button class="save">Добавить задание</button></form></div>';
   const list=role==="teacher"?tasks().filter(myTeacherRecord):tasks().filter(studentMatches); out+=homeworkList(list);
@@ -147,7 +154,20 @@ function page(p) {
   $("#joinClassForm").onsubmit=e=>{e.preventDefault();const code=$("#joinClassCode").value.trim().toUpperCase();const cs=classes();const c=cs.find(x=>x.inviteCode&&x.inviteCode.toUpperCase()===code);if(!c)return alert("Класс с таким кодом не найден в этом браузере.");c.teacherUsernames=Array.isArray(c.teacherUsernames)?c.teacherUsernames:[c.teacherUsername].filter(Boolean);if(!c.teacherUsernames.includes(teacherUsername()))c.teacherUsernames.push(teacherUsername());put("classes",cs);alert("Вы подключились к классу "+c.name+". Теперь вам доступны ученики и общее расписание.");page(p);};
  }
  if(p==="Журнал оценок"&&role==="teacher"&&$("#gradeForm")){studentOptions("gClass","gStudent","gGroup");$("#gradeForm").onsubmit=e=>{e.preventDefault();if(!$("#gStudent").value)return;const a=grades();a.unshift({className:$("#gClass").value,group:$("#gGroup").value,student:$("#gStudent").value,subject:$("#gSubject").value.trim(),mark:$("#gMark").value,teacher:name,teacherType,teacherUsername:teacherUsername(),teacherSubjects,date:new Date().toLocaleDateString("ru-RU")});put("grades",a);page(p);};}
- if(p==="Итоговые оценки"&&role==="teacher"&&$("#finalForm")){studentOptions("fClass","fStudent");$("#finalForm").onsubmit=e=>{e.preventDefault();if(!$("#fStudent").value)return;const a=finals();a.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,mark:$("#fMark").value,teacher:name,teacherType,teacherUsername:teacherUsername(),teacherSubjects});put("finals",a);page(p);};}
+ if(p==="Итоговые оценки"&&role==="teacher"&&$("#finalForm")){
+  studentOptions("fClass","fStudent");
+  const pointsInput=$("#fPoints"), preview=$("#fGradePreview");
+  pointsInput.oninput=()=>{const v=pointsInput.value;if(v===""||Number(v)<0||Number(v)>100){preview.textContent="Введите число от 0 до 100.";return;}preview.textContent="Итоговая оценка: "+markFromPoints(v);};
+  $("#finalForm").onsubmit=e=>{
+   e.preventDefault();
+   const points=Number(pointsInput.value);
+   if(!$("#fStudent").value)return alert("Выберите ученика.");
+   if(!Number.isInteger(points)||points<0||points>100)return alert("Введите целое число баллов от 0 до 100.");
+   const a=finals();
+   a.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,points,maxPoints:100,mark:markFromPoints(points),teacher:name,teacherType,teacherUsername:teacherUsername(),teacherSubjects});
+   put("finals",a);page(p);
+  };
+ }
  if(p==="Домашние задания"&&role==="teacher"&&$("#taskForm")){const c=$("#tClass"),g=$("#tGroup");const fill=()=>g.innerHTML=groupOptions(c.value,true);c.onchange=fill;fill();$("#taskForm").onsubmit=e=>{e.preventDefault();const subject=$("#tSubject").value.trim(),description=$("#tDescription").value.trim();if(!c.value||!subject||!description)return alert("Выберите класс и заполните предмет и задание.");const a=tasks();a.unshift({className:c.value,group:g.value||"Весь класс",subject,description,due:$("#tDue").value.trim(),teacher:name,teacherType,teacherUsername:teacherUsername(),teacherSubjects});put("tasks",a);page(p);};}
  if(p==="Контрольные"&&role==="teacher"&&$("#testForm")){const c=$("#xClass"),g=$("#xGroup");const fill=()=>g.innerHTML=groupOptions(c.value,true);c.onchange=fill;fill();$("#testForm").onsubmit=e=>{e.preventDefault();const a=tests();a.unshift({className:c.value,group:g.value,subject:$("#xSubject").value.trim(),topic:$("#xTopic").value.trim(),date:$("#xDate").value,format:$("#xFormat").value,teacher:name,teacherType,teacherUsername:teacherUsername()});put("tests",a);page(p);};}
  if(p==="Расписание"&&role==="teacher"&&$("#lessonForm")){const c=$("#lClass"),g=$("#lGroup");const fill=()=>g.innerHTML=groupOptions(c.value);c.onchange=fill;fill();$("#lessonForm").onsubmit=e=>{e.preventDefault();const a=lessons();a.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:c.value,group:g.value,subject:$("#lSubject").value.trim(),teacher:name,teacherType,teacherSubjects});put("lessons",a);page(p);};}
