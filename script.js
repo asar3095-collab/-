@@ -8,6 +8,7 @@ const grades = () => get("grades");
 const finals = () => get("finals");
 const tasks = () => get("tasks");
 const lessons = () => get("lessons");
+const tests = () => get("tests");
 const normClass = c => ({...c, groups:Array.isArray(c.groups)&&c.groups.length?c.groups:["Общая"], students:(c.students||[]).map(s=>typeof s==="string"?{name:s,group:"Общая"}:s)});
 const allClasses = () => classes().map(normClass);
 const teacherClasses = () => allClasses().filter(c => c.teacher === name && c.teacherType === teacherType);
@@ -18,7 +19,7 @@ const studentMatches = item => { const s=currentStudent(); if(!s) return false; 
 function openCabinet() {
  $("#login").classList.add("hidden"); $("#cabinet").classList.remove("hidden");
  $("#who").textContent=name+" · "+(role==="teacher"?teacherType:"Ученик");
- const menus=role==="teacher"?["Главная","Мои классы","Журнал оценок","Итоговые оценки","Домашние задания","Расписание"]:["Главная","Мои оценки","Итоговые оценки","Домашние задания","Расписание"];
+ const menus=role==="teacher"?["Главная","Мои классы","Журнал оценок","Итоговые оценки","Домашние задания","Расписание","Контрольные"]:["Главная","Мои оценки","Итоговые оценки","Домашние задания","Расписание","Контрольные"];
  $("#nav").innerHTML=menus.map(x=>'<button data-page="'+x+'">'+x+"</button>").join("");
  document.querySelectorAll("#nav button").forEach(btn=>btn.onclick=()=>page(btn.dataset.page)); page("Главная");
 }
@@ -101,6 +102,12 @@ function page(p) {
  } else if(p==="Домашние задания") {
   if(role==="teacher")out='<div class="card"><h3>Добавить домашнее задание</h3><form id="taskForm"><label>Класс</label><select id="tClass">'+classOptions()+'</select><label>Группа</label><select id="tGroup"></select><label>Предмет</label><input id="tSubject" required><label>Задание</label><textarea id="tDescription" rows="3" required></textarea><label>Срок сдачи</label><input id="tDue" placeholder="Например, 25 ноября"><button class="save">Добавить задание</button></form></div>';
   const list=role==="teacher"?tasks().filter(myTeacherRecord):tasks().filter(studentMatches); out+=homeworkList(list);
+ } else if(p==="Контрольные") {
+  if(role==="teacher") {
+   out=teacherClasses().length?'<div class="card"><h3>Добавить контрольную</h3><form id="testForm"><label>Класс</label><select id="xClass">'+classOptions()+'</select><label>Группа</label><select id="xGroup"></select><label>Предмет</label><input id="xSubject" required placeholder="Например, математика"><label>Тема контрольной</label><input id="xTopic" required placeholder="Например, дроби"><label>Дата проведения</label><input id="xDate" type="date" required><label>Формат</label><select id="xFormat"><option>Письменная работа</option><option>Тест</option><option>Самостоятельная работа</option><option>Устный опрос</option></select><button class="save">Добавить в список</button></form></div>':empty("Нет классов","Сначала добавьте класс.");
+  }
+  const list=role==="teacher"?tests().filter(myTeacherRecord):tests().filter(studentMatches);
+  out+='<div class="card"><h3>Список контрольных</h3>'+(list.length?list.map(t=>'<div class="row"><b>'+safe(t.date)+' · '+safe(t.subject)+'</b><br>'+safe(t.className)+' · '+safe(t.group||"Весь класс")+'<br>Тема: '+safe(t.topic)+'<br>Формат: '+safe(t.format)+'<br><span class="muted">Учитель: '+safe(t.teacher)+'</span></div>').join(""):'<p class="muted">Контрольные пока не добавлены.</p>')+'</div>';
  } else if(p==="Расписание") {
   if(role==="teacher")out='<div class="card"><h3>Добавить урок</h3><form id="lessonForm"><label>День недели</label><select id="lDay"><option>Понедельник</option><option>Вторник</option><option>Среда</option><option>Четверг</option><option>Пятница</option><option>Суббота</option></select><label>Время</label><input id="lTime" required placeholder="08:30"><label>Класс</label><select id="lClass">'+classOptions()+'</select><label>Группа</label><select id="lGroup"></select><label>Предмет</label><input id="lSubject" required><button class="save">Добавить урок</button></form></div>';
   const list=role==="teacher"?lessons().filter(myTeacherRecord):lessons().filter(studentMatches); out+=scheduleList(list);
@@ -110,6 +117,7 @@ function page(p) {
  if(p==="Журнал оценок"&&role==="teacher"&&$("#gradeForm")){studentOptions("gClass","gStudent","gGroup");$("#gradeForm").onsubmit=e=>{e.preventDefault();if(!$("#gStudent").value)return;const a=grades();a.unshift({className:$("#gClass").value,group:$("#gGroup").value,student:$("#gStudent").value,subject:$("#gSubject").value.trim(),mark:$("#gMark").value,teacher:name,teacherType,teacherSubjects,date:new Date().toLocaleDateString("ru-RU")});put("grades",a);page(p);};}
  if(p==="Итоговые оценки"&&role==="teacher"&&$("#finalForm")){studentOptions("fClass","fStudent");$("#finalForm").onsubmit=e=>{e.preventDefault();if(!$("#fStudent").value)return;const a=finals();a.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,mark:$("#fMark").value,teacher:name,teacherType,teacherSubjects});put("finals",a);page(p);};}
  if(p==="Домашние задания"&&role==="teacher"&&$("#taskForm")){studentOptions("tClass","tUnused","tGroup");$("#tUnused").remove();$("#taskForm").onsubmit=e=>{e.preventDefault();const a=tasks();a.unshift({className:$("#tClass").value,group:$("#tGroup").value,subject:$("#tSubject").value.trim(),description:$("#tDescription").value.trim(),due:$("#tDue").value.trim(),teacher:name,teacherType,teacherSubjects});put("tasks",a);page(p);};}
+ if(p==="Контрольные"&&role==="teacher"&&$("#testForm")){const c=$("#xClass"),g=$("#xGroup");const fill=()=>g.innerHTML=groupOptions(c.value,true);c.onchange=fill;fill();$("#testForm").onsubmit=e=>{e.preventDefault();const a=tests();a.unshift({className:c.value,group:g.value,subject:$("#xSubject").value.trim(),topic:$("#xTopic").value.trim(),date:$("#xDate").value,format:$("#xFormat").value,teacher:name,teacherType});put("tests",a);page(p);};}
  if(p==="Расписание"&&role==="teacher"&&$("#lessonForm")){const c=$("#lClass"),g=$("#lGroup");const fill=()=>g.innerHTML=groupOptions(c.value);c.onchange=fill;fill();$("#lessonForm").onsubmit=e=>{e.preventDefault();const a=lessons();a.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:c.value,group:g.value,subject:$("#lSubject").value.trim(),teacher:name,teacherType,teacherSubjects});put("lessons",a);page(p);};}
 }
 function updateAuthFields() {
