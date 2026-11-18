@@ -76,7 +76,8 @@ function page(p) {
  if(p==="Домашние задания"&&role==="teacher"&&$("#taskForm")){studentOptions("tClass","tUnused","tGroup");$("#tUnused").remove();$("#taskForm").onsubmit=e=>{e.preventDefault();const a=tasks();a.unshift({className:$("#tClass").value,group:$("#tGroup").value,subject:$("#tSubject").value.trim(),description:$("#tDescription").value.trim(),due:$("#tDue").value.trim(),teacher:name,teacherType,teacherSubjects});put("tasks",a);page(p);};}
  if(p==="Расписание"&&role==="teacher"&&$("#lessonForm")){const c=$("#lClass"),g=$("#lGroup");const fill=()=>g.innerHTML=groupOptions(c.value);c.onchange=fill;fill();$("#lessonForm").onsubmit=e=>{e.preventDefault();const a=lessons();a.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:c.value,group:g.value,subject:$("#lSubject").value.trim(),teacher:name,teacherType,teacherSubjects});put("lessons",a);page(p);};}
 }
-$("#role").onchange=()=>$("#teacherFields").classList.toggle("hidden",$("#role").value!=="teacher");\n$("#form").onsubmit=e=>{e.preventDefault();enter();};
+$("#role").onchange=()=>$("#teacherFields").classList.toggle("hidden",$("#role").value!=="teacher");
+$("#form").onsubmit=e=>{e.preventDefault();enter();};
 $("#exit").onclick=()=>{$("#cabinet").classList.add("hidden");$("#login").classList.remove("hidden");};
 $("#theme").onclick=()=>{document.body.classList.toggle("dark");localStorage.setItem("diaryTheme",document.body.classList.contains("dark")?"dark":"light");};
 if(localStorage.getItem("diaryTheme")==="dark")document.body.classList.add("dark");
