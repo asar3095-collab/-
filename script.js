@@ -21,7 +21,7 @@ const teacherClasses = () => allClasses().filter(c => {
 const classOptions = (selected="") => (role==="teacher"?teacherClasses():allClasses()).map(c=>'<option value="'+safe(c.name)+'"'+(c.name===selected?" selected":"")+'>'+safe(c.name)+'</option>').join("");
 const myTeacherRecord = item => item.teacherUsername ? item.teacherUsername===teacherUsername() : item.teacher === name && (!item.teacherType || item.teacherType === teacherType);
 const currentStudent = () => allClasses().flatMap(c=>c.students.map(s=>({...s,className:c.name}))).find(s=>s.name.toLowerCase()===name.toLowerCase());
-const studentMatches = item => { const s=currentStudent(); if(!s) return false; return item.className===s.className && (!item.group || item.group==="Весь класс" || item.group===s.group) && (!item.student || item.student.toLowerCase()===name.toLowerCase()); };
+const studentMatches = item => { const s=currentStudent(); if(!s || !item.student) return false; return item.className===s.className && (!item.group || item.group==="Весь класс" || item.group===s.group) && item.student.trim().toLowerCase()===name.trim().toLowerCase(); };
 function openCabinet() {
  $("#login").classList.add("hidden"); $("#cabinet").classList.remove("hidden");
  $("#who").textContent=name+" · "+(role==="teacher"?teacherType:"Ученик");
