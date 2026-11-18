@@ -13,11 +13,23 @@ const saveSession = () => localStorage.setItem("diary_session", JSON.stringify({
 const normClass = c => ({...c, groups:Array.isArray(c.groups)&&c.groups.length?c.groups:["Общая"], students:(c.students||[]).map(s=>typeof s==="string"?{name:s,group:"Общая"}:s)});
 const allClasses = () => classes().map(normClass);
 const teacherUsername = () => localStorage.getItem("diary_activeTeacherUsername") || "";
-const teacherClasses = () => allClasses().filter(c => {
- const members=Array.isArray(c.teacherUsernames)?c.teacherUsernames:[];
- return members.includes(teacherUsername()) || c.teacherUsername===teacherUsername() ||
-  (!c.teacherUsernames && !c.teacherUsername && c.teacher===name && c.teacherType===teacherType);
-});
+const teacherClasses = () => {
+ const raw=classes(), username=teacherUsername();
+ let changed=false;
+ const owned=raw.filter(c=>{
+  const members=Array.isArray(c.teacherUsernames)?c.teacherUsernames:[];
+  return members.includes(username) || c.teacherUsername===username ||
+   ((!c.teacherUsername || members.length===0) && c.teacher===name && c.teacherType===teacherType);
+ });
+ owned.forEach(c=>{
+  if(!Array.isArray(c.teacherUsernames)){c.teacherUsernames=[];changed=true;}
+  if(username&&!c.teacherUsernames.includes(username)){c.teacherUsernames.push(username);changed=true;}
+  if(!c.teacherUsername&&username){c.teacherUsername=username;changed=true;}
+  if(!c.inviteCode){c.inviteCode=Array.from(crypto.getRandomValues(new Uint8Array(4)),b=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b%32]).join("");changed=true;}
+ });
+ if(changed)put("classes",raw);
+ return owned.map(normClass);
+};
 const classOptions = (selected="") => (role==="teacher"?teacherClasses():allClasses()).map(c=>'<option value="'+safe(c.name)+'"'+(c.name===selected?" selected":"")+'>'+safe(c.name)+'</option>').join("");
 const myTeacherRecord = item => item.teacherUsername ? item.teacherUsername===teacherUsername() : item.teacher === name && (!item.teacherType || item.teacherType === teacherType);
 const currentStudent = () => allClasses().flatMap(c=>c.students.map(s=>({...s,className:c.name}))).find(s=>s.name.toLowerCase()===name.toLowerCase());
@@ -76,7 +88,7 @@ function groupOptions(className, includeAll=false) {
 }
 function studentOptions(classId,studentId,groupId) {
  const c=$("#"+classId), s=$("#"+studentId), g=groupId?$("#"+groupId):null; if(!c||!s)return;
- const fill=()=>{const item=allClasses().find(x=>x.name===c.value); if(g)g.innerHTML=groupOptions(c.value,true); const grp=g?g.value:"Весь класс"; const people=item?item.students.filter(x=>!g||grp==="Весь класс"||x.group===grp):[]; s.innerHTML=people.length?people.map(x=>'<option>'+safe(x.name)+'</option>').join(""):'<option value="">Нет учеников в выбранной группе</option>';};
+ const fill=()=>{const item=allClasses().find(x=>x.name===c.value); if(g)g.innerHTML=groupOptions(c.value,true); const grp=g?g.value:"Весь класс"; const people=item?item.students.filter(x=>!g||grp==="Весь класс"||grp==="Все"||x.group===grp):[]; s.innerHTML=people.length?people.map(x=>'<option>'+safe(x.name)+'</option>').join(""):'<option value="">Нет учеников в выбранной группе</option>';};
  c.onchange=fill; if(g)g.onchange=fill; fill();
 }
 function gradeTable(list) {
