@@ -9,6 +9,7 @@ const finals = () => get("finals");
 const tasks = () => get("tasks");
 const lessons = () => get("lessons");
 const tests = () => get("tests");
+const saveSession = () => localStorage.setItem("diary_session", JSON.stringify({role,name,teacherType,teacherSubjects,username:role==="teacher"?localStorage.getItem("diary_activeTeacherUsername")||"":""}));
 const normClass = c => ({...c, groups:Array.isArray(c.groups)&&c.groups.length?c.groups:["Общая"], students:(c.students||[]).map(s=>typeof s==="string"?{name:s,group:"Общая"}:s)});
 const allClasses = () => classes().map(normClass);
 const teacherClasses = () => allClasses().filter(c => c.teacher === name && c.teacherType === teacherType);
@@ -33,6 +34,7 @@ async function handleAuth() {
  if(role!=="teacher") {
   name=$("#studentName").value.trim(); teacherType=""; teacherSubjects=[];
   if(!name)return alert("Введите имя ученика.");
+  localStorage.removeItem("diary_activeTeacherUsername"); saveSession();
   openCabinet(); return;
  }
  const username=$("#accountUsername").value.trim().toLowerCase();
@@ -51,12 +53,15 @@ async function handleAuth() {
   const account={username,passwordHash:await passwordHash(password),name:fullName,teacherType,teacherSubjects};
   accounts.push(account); put("teacherAccounts",accounts);
   name=account.name;
+  localStorage.setItem("diary_activeTeacherUsername",username);
   alert("Регистрация завершена. Теперь можно входить по логину и паролю.");
  } else {
   const account=accounts.find(x=>x.username===username);
   if(!account||account.passwordHash!==await passwordHash(password))return alert("Неверный логин или пароль.");
   name=account.name; teacherType=account.teacherType; teacherSubjects=account.teacherSubjects||[];
+  localStorage.setItem("diary_activeTeacherUsername",username);
  }
+ saveSession();
  openCabinet();
 }
 function empty(title,message){return '<div class="empty"><strong>'+safe(title)+'</strong>'+safe(message)+"</div>";}
@@ -129,7 +134,15 @@ function updateAuthFields() {
 $("#role").onchange=updateAuthFields;
 $("#teacherMode").onchange=updateAuthFields;
 $("#form").onsubmit=async e=>{e.preventDefault();try{await handleAuth();}catch(err){console.error(err);alert("Не удалось выполнить вход. Проверьте данные и попробуйте ещё раз.");}};
-$("#exit").onclick=()=>{$("#cabinet").classList.add("hidden");$("#login").classList.remove("hidden");};
+$("#exit").onclick=()=>{localStorage.removeItem("diary_session");localStorage.removeItem("diary_activeTeacherUsername");$("#cabinet").classList.add("hidden");$("#login").classList.remove("hidden");};
 $("#theme").onclick=()=>{document.body.classList.toggle("dark");localStorage.setItem("diaryTheme",document.body.classList.contains("dark")?"dark":"light");};
 updateAuthFields();
 if(localStorage.getItem("diaryTheme")==="dark")document.body.classList.add("dark");
+try {
+ const session=JSON.parse(localStorage.getItem("diary_session")||"null");
+ if(session&&session.role==="teacher"&&session.username){
+  const account=get("teacherAccounts").find(a=>a.username===session.username);
+  if(account){role="teacher";name=account.name;teacherType=account.teacherType;teacherSubjects=account.teacherSubjects||[];localStorage.setItem("diary_activeTeacherUsername",account.username);openCabinet();}
+  else localStorage.removeItem("diary_session");
+ } else if(session&&session.role==="student"&&session.name){role="student";name=session.name;openCabinet();}
+} catch(error){localStorage.removeItem("diary_session");}
