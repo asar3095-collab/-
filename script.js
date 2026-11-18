@@ -1,21 +1,17 @@
 const $ = s => document.querySelector(s);
 let role = "student", name = "";
-const grades = [["Математика","5","18.11"],["Русский язык","4","17.11"],["История","5","16.11"],["Английский язык","4","14.11"]];
-const tasks = [["Математика","Стр. 42, № 5–8","20 ноября"],["Русский язык","Упражнение 116","19 ноября"],["История","Подготовить доклад","21 ноября"]];
-const classes = {
-  "5 «А»":["Алексей Смирнов","Мария Иванова","Даниил Петров"],
-  "6 «Б»":["Анна Кузнецова","Максим Соколов","Егор Волков"],
-  "7 «В»":["София Морозова","Артём Орлов","Полина Васильева"]
-};
-const menus = {
-  student:["Главная","Мои оценки","Домашние задания","Расписание"],
-  teacher:["Главная","Мои классы","Журнал оценок","Итоговые оценки","Домашние задания","Расписание","Посещаемость"]
-};
-const readFinalGrades = () => {
-  try { return JSON.parse(localStorage.getItem("diaryFinalGrades") || "[]"); }
+const get = key => {
+  try { return JSON.parse(localStorage.getItem("diary_" + key) || "[]"); }
   catch { return []; }
 };
+const put = (key, value) => localStorage.setItem("diary_" + key, JSON.stringify(value));
 const safe = value => String(value).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+const classes = () => get("classes");
+const grades = () => get("grades");
+const finals = () => get("finals");
+const tasks = () => get("tasks");
+const lessons = () => get("lessons");
+const classOptions = selected => classes().map(c => '<option value="' + safe(c.name) + '"' + (c.name === selected ? " selected" : "") + '>' + safe(c.name) + '</option>').join("");
 function enter() {
   name = $("#name").value.trim();
   role = $("#role").value;
@@ -23,55 +19,63 @@ function enter() {
   $("#login").classList.add("hidden");
   $("#cabinet").classList.remove("hidden");
   $("#who").textContent = name + " · " + (role === "teacher" ? "Учитель" : "Ученик");
-  $("#nav").innerHTML = menus[role].map(x => '<button data-page="' + x + '">' + x + "</button>").join("");
+  const menus = role === "teacher"
+    ? ["Главная","Мои классы","Журнал оценок","Итоговые оценки","Домашние задания","Расписание","Посещаемость"]
+    : ["Главная","Мои оценки","Итоговые оценки","Домашние задания","Расписание"];
+  $("#nav").innerHTML = menus.map(x => '<button data-page="' + x + '">' + x + "</button>").join("");
   document.querySelectorAll("#nav button").forEach(b => b.onclick = () => page(b.dataset.page));
   page("Главная");
 }
-function table() {
-  return '<div class="card"><h3>Последние оценки</h3>' + grades.map(g =>
-    '<div class="row">' + g[0] + ' <b class="grade">' + g[1] + '</b> <span class="muted">' + g[2] + "</span></div>"
-  ).join("") + "</div>";
+function empty(title, message) {
+  return '<div class="empty"><strong>' + safe(title) + '</strong>' + safe(message) + "</div>";
 }
-function homework() {
-  return '<div class="card"><h3>Домашние задания</h3>' + tasks.map(t =>
-    '<div class="row"><b>' + t[0] + "</b><br>" + t[1] + ' <span class="muted">· ' + t[2] + "</span></div>"
-  ).join("") + "</div>";
+function gradeTable(list) {
+  if (!list.length) return empty("Оценок пока нет", "Учитель ещё не добавил оценки.");
+  return '<div class="card"><div class="table-wrap"><table class="grade-table"><thead><tr><th>Класс</th><th>Ученик</th><th>Предмет</th><th>Оценка</th><th>Дата</th></tr></thead><tbody>' +
+    list.map(g => '<tr><td>' + safe(g.className) + '</td><td>' + safe(g.student) + '</td><td>' + safe(g.subject) + '</td><td class="grade">' + safe(g.mark) + '</td><td>' + safe(g.date || "") + "</td></tr>").join("") +
+    "</tbody></table></div></div>";
 }
-function finalGradesPage() {
-  const saved = readFinalGrades();
-  return '<div class="card"><h3>Выставить итоговую оценку</h3><p class="muted">Выберите класс, ученика, предмет и период. Оценка сохранится в этом браузере.</p>' +
-    '<form id="finalGradeForm"><div class="form-grid">' +
-    '<div><label for="finalClass">Класс</label><select id="finalClass">' + Object.keys(classes).map(c => '<option>' + c + "</option>").join("") + "</select></div>" +
-    '<div><label for="finalStudent">Ученик</label><select id="finalStudent">' + classes["5 «А»"].map(s => '<option>' + s + "</option>").join("") + "</select></div>" +
-    '<div><label for="finalSubject">Предмет</label><select id="finalSubject"><option>Математика</option><option>Русский язык</option><option>История</option><option>Английский язык</option><option>Биология</option><option>География</option></select></div>' +
-    '<div><label for="finalPeriod">Период</label><select id="finalPeriod"><option>1 четверть</option><option>2 четверть</option><option>3 четверть</option><option>4 четверть</option><option>1 полугодие</option><option>2 полугодие</option><option>Годовая</option></select></div>' +
-    '<div><label for="finalMark">Итоговая оценка</label><select id="finalMark"><option value="5">5 — отлично</option><option value="4">4 — хорошо</option><option value="3">3 — удовлетворительно</option><option value="2">2 — неудовлетворительно</option></select></div>' +
-    '<div><label for="finalComment">Комментарий (необязательно)</label><input id="finalComment" placeholder="Например, за четверть"></div></div>' +
-    '<button class="save" type="submit">Сохранить итоговую оценку</button></form></div>' +
-    '<div class="card"><h3>Выставленные итоговые оценки</h3>' +
-    (saved.length ? '<div class="table-wrap"><table class="grade-table"><thead><tr><th>Класс</th><th>Ученик</th><th>Предмет</th><th>Период</th><th>Оценка</th></tr></thead><tbody>' +
-      saved.map(g => '<tr><td>' + safe(g.className) + '</td><td>' + safe(g.student) + '</td><td>' + safe(g.subject) + '</td><td>' + safe(g.period) + '</td><td class="grade">' + safe(g.mark) + '</td></tr>').join("") +
-      "</tbody></table></div>" : '<div class="empty"><strong>Итоговых оценок пока нет</strong>Когда учитель выставит оценки, они появятся здесь.</div>') + "</div>";
+function homeworkList(list) {
+  if (!list.length) return empty("Заданий пока нет", "Учитель ещё не добавил домашние задания.");
+  return '<div class="card">' + list.map(t => '<div class="row"><b>' + safe(t.subject) + '</b><br>' + safe(t.description) + ' <span class="muted">· ' + safe(t.due || "Срок не указан") + '</span></div>').join("") + "</div>";
 }
-function bindFinalGradeForm() {
-  const form = $("#finalGradeForm");
-  if (!form) return;
-  const classSelect = $("#finalClass"), studentSelect = $("#finalStudent");
-  classSelect.onchange = () => {
-    studentSelect.innerHTML = classes[classSelect.value].map(s => "<option>" + safe(s) + "</option>").join("");
+function scheduleList(list) {
+  if (!list.length) return empty("Расписание пока не составлено", "Здесь появятся уроки, когда учитель добавит расписание.");
+  return '<div class="card">' + list.map(l => '<div class="row"><b>' + safe(l.day) + " · " + safe(l.time) + '</b><br>' + safe(l.className) + " — " + safe(l.subject) + "</div>").join("") + "</div>";
+}
+function finalGradeForm() {
+  const cs = classes();
+  if (!cs.length) return empty("Сначала добавьте класс", "Перейдите в раздел «Мои классы» и создайте класс со списком учеников.");
+  return '<div class="card"><h3>Выставить итоговую оценку</h3><form id="finalForm">' +
+    '<label>Класс</label><select id="fClass">' + classOptions() + '</select>' +
+    '<label>Ученик</label><select id="fStudent"></select>' +
+    '<label>Предмет</label><input id="fSubject" required placeholder="Например, математика">' +
+    '<label>Период</label><select id="fPeriod"><option>1 четверть</option><option>2 четверть</option><option>3 четверть</option><option>4 четверть</option><option>1 полугодие</option><option>2 полугодие</option><option>Годовая</option></select>' +
+    '<label>Оценка</label><select id="fMark"><option>5</option><option>4</option><option>3</option><option>2</option></select>' +
+    '<button class="save" type="submit">Сохранить итоговую оценку</button></form></div>';
+}
+function bindStudentSelect(classId, studentId) {
+  const c = $("#" + classId), s = $("#" + studentId);
+  if (!c || !s) return;
+  const fill = () => {
+    const item = classes().find(x => x.name === c.value);
+    s.innerHTML = item && item.students.length
+      ? item.students.map(n => '<option>' + safe(n) + '</option>').join("")
+      : '<option value="">В этом классе пока нет учеников</option>';
   };
-  form.onsubmit = e => {
+  c.onchange = fill;
+  fill();
+}
+function bindFinalForm() {
+  bindStudentSelect("fClass", "fStudent");
+  const f = $("#finalForm");
+  if (!f) return;
+  f.onsubmit = e => {
     e.preventDefault();
-    const saved = readFinalGrades();
-    saved.unshift({
-      className:classSelect.value,
-      student:studentSelect.value,
-      subject:$("#finalSubject").value,
-      period:$("#finalPeriod").value,
-      mark:$("#finalMark").value,
-      comment:$("#finalComment").value.trim()
-    });
-    localStorage.setItem("diaryFinalGrades", JSON.stringify(saved));
+    if (!$("#fStudent").value) return;
+    const all = finals();
+    all.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,mark:$("#fMark").value});
+    put("finals", all);
     page("Итоговые оценки");
   };
 }
@@ -80,40 +84,64 @@ function page(p) {
   document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("active", b.dataset.page === p));
   let out = "";
   if (p === "Главная") {
-    out = '<div class="card"><h3>Здравствуйте, ' + safe(name) + '!</h3><p class="muted">Добро пожаловать в электронный дневник.</p></div>';
     if (role === "teacher") {
-      const count = readFinalGrades().length;
-      out += '<div class="stats"><div class="card">Мои классы<strong>3</strong></div><div class="card">Итоговых оценок<strong>' + count + '</strong></div><div class="card">Расписание<strong>—</strong></div></div><div class="notice">Расписание пока не заполнено. Оно появится здесь, когда учитель его составит.</div>';
+      out = '<div class="card"><h3>Здравствуйте, ' + safe(name) + '!</h3><p class="muted">В вашем дневнике пока нет демонстрационных данных. Добавьте классы, оценки и расписание.</p></div>' +
+        '<div class="stats"><div class="card">Классы<strong>' + classes().length + '</strong></div><div class="card">Оценки<strong>' + grades().length + '</strong></div><div class="card">Уроки в расписании<strong>' + lessons().length + '</strong></div></div>';
     } else {
-      out += '<div class="stats"><div class="card">Средний балл<strong>4,5</strong></div><div class="card">Оценок<strong>8</strong></div><div class="card">Заданий<strong>3</strong></div></div>' + table();
+      out = '<div class="card"><h3>Здравствуйте, ' + safe(name) + '!</h3><p class="muted">Здесь будут ваши оценки, задания и расписание после того, как учитель добавит данные.</p></div>' +
+        '<div class="stats"><div class="card">Оценки<strong>' + grades().length + '</strong></div><div class="card">Задания<strong>' + tasks().length + '</strong></div><div class="card">Уроки<strong>' + lessons().length + '</strong></div></div>';
     }
-  } else if (p === "Мои оценки" || p === "Журнал оценок") {
-    out = role === "teacher"
-      ? '<div class="empty"><strong>Журнал оценок</strong>Выставление текущих оценок добавим отдельно. Итоговые оценки можно выставлять в соответствующем разделе.</div>'
-      : table();
-  } else if (p === "Итоговые оценки") {
-    out = finalGradesPage();
-  } else if (p === "Домашние задания") {
-    out = homework();
   } else if (p === "Мои классы") {
-    out = '<div class="card"><h3>Мои классы</h3>' + Object.entries(classes).map(([c, students]) =>
-      '<div class="row"><b>' + c + '</b><span class="muted"> · ' + students.length + ' ученика в демо-списке</span></div>'
-    ).join("") + "</div>";
+    out = '<div class="card"><h3>Добавить класс</h3><form id="classForm"><label>Название класса</label><input id="className" required placeholder="Например, 5 А"><label>Ученики (каждого с новой строки)</label><textarea id="studentNames" rows="5" placeholder="Имя Фамилия"></textarea><button class="save" type="submit">Добавить класс</button></form></div>';
+    const cs = classes();
+    out += cs.length ? '<div class="card"><h3>Мои классы</h3>' + cs.map(c => '<div class="row"><b>' + safe(c.name) + '</b><div class="muted">' + c.students.map(safe).join(", ") + '</div></div>').join("") + "</div>" : empty("Классов пока нет", "Создайте первый класс с помощью формы выше.");
+  } else if (p === "Журнал оценок" || p === "Мои оценки") {
+    if (role === "teacher") {
+      const cs = classes();
+      out = cs.length ? '<div class="card"><h3>Добавить оценку</h3><form id="gradeForm"><label>Класс</label><select id="gClass">' + classOptions() + '</select><label>Ученик</label><select id="gStudent"></select><label>Предмет</label><input id="gSubject" required placeholder="Предмет"><label>Оценка</label><select id="gMark"><option>5</option><option>4</option><option>3</option><option>2</option></select><button class="save" type="submit">Выставить оценку</button></form></div>' : empty("Нет классов", "Сначала создайте класс в разделе «Мои классы».");
+      out += gradeTable(grades());
+    } else out = gradeTable(grades());
+  } else if (p === "Итоговые оценки") {
+    out = role === "teacher" ? finalGradeForm() : "";
+    out += finals().length ? '<div class="card"><h3>Итоговые оценки</h3>' + finals().map(g => '<div class="row">' + safe(g.className) + ' · ' + safe(g.student) + ' · ' + safe(g.subject) + ' · ' + safe(g.period) + ' <b class="grade">' + safe(g.mark) + '</b></div>').join("") + "</div>" : empty("Итоговых оценок пока нет", "Учитель ещё не выставил итоговые оценки.");
+  } else if (p === "Домашние задания") {
+    if (role === "teacher") out = '<div class="card"><h3>Добавить домашнее задание</h3><form id="taskForm"><label>Предмет</label><input id="tSubject" required><label>Задание</label><textarea id="tDescription" rows="3" required></textarea><label>Срок сдачи</label><input id="tDue" placeholder="Например, 25 ноября"><button class="save" type="submit">Добавить задание</button></form></div>';
+    out += homeworkList(tasks());
   } else if (p === "Расписание") {
-    out = role === "teacher"
-      ? '<div class="empty"><strong>Расписание пока не составлено</strong>Здесь появятся уроки, когда учитель добавит расписание.</div>'
-      : '<div class="card"><h3>Расписание на сегодня</h3><p>08:30 — Математика</p><p>09:25 — Русский язык</p><p>10:20 — История</p><p>11:25 — Английский язык</p></div>';
+    if (role === "teacher") out = '<div class="card"><h3>Добавить урок в расписание</h3><form id="lessonForm"><label>День недели</label><select id="lDay"><option>Понедельник</option><option>Вторник</option><option>Среда</option><option>Четверг</option><option>Пятница</option><option>Суббота</option></select><label>Время</label><input id="lTime" required placeholder="08:30"><label>Класс</label><select id="lClass">' + classOptions() + '</select><label>Предмет</label><input id="lSubject" required><button class="save" type="submit">Добавить урок</button></form></div>';
+    out += scheduleList(lessons());
   } else if (p === "Посещаемость") {
-    out = '<div class="empty"><strong>Данные о посещаемости пока не внесены</strong>Здесь будет отображаться посещаемость классов.</div>';
+    out = empty("Посещаемость пока не заполнена", "Здесь появятся данные после их внесения.");
   }
   $("#content").innerHTML = out;
-  if (p === "Итоговые оценки") bindFinalGradeForm();
+  if (p === "Итоговые оценки" && role === "teacher") bindFinalForm();
+  if (p === "Мои классы" && role === "teacher") {
+    $("#classForm").onsubmit = e => {
+      e.preventDefault();
+      const all = classes(), className = $("#className").value.trim();
+      if (!className || all.some(c => c.name.toLowerCase() === className.toLowerCase())) return;
+      all.push({name:className,students:$("#studentNames").value.split("\n").map(x => x.trim()).filter(Boolean)});
+      put("classes", all); page("Мои классы");
+    };
+  }
+  if ((p === "Журнал оценок") && role === "teacher" && $("#gradeForm")) {
+    bindStudentSelect("gClass","gStudent");
+    $("#gradeForm").onsubmit = e => {
+      e.preventDefault(); if (!$("#gStudent").value) return;
+      const all = grades(); all.unshift({className:$("#gClass").value,student:$("#gStudent").value,subject:$("#gSubject").value.trim(),mark:$("#gMark").value,date:new Date().toLocaleDateString("ru-RU")});
+      put("grades", all); page("Журнал оценок");
+    };
+  }
+  if (p === "Домашние задания" && role === "teacher") {
+    $("#taskForm").onsubmit = e => { e.preventDefault(); const all=tasks(); all.unshift({subject:$("#tSubject").value.trim(),description:$("#tDescription").value.trim(),due:$("#tDue").value.trim()}); put("tasks",all); page(p); };
+  }
+  if (p === "Расписание" && role === "teacher" && $("#lessonForm")) {
+    const lc = $("#lClass"); if (lc && !classes().length) lc.innerHTML = '<option value="">Сначала добавьте класс</option>';
+    $("#lessonForm").onsubmit = e => { e.preventDefault(); if (!$("#lClass").value) return; const all=lessons(); all.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:$("#lClass").value,subject:$("#lSubject").value.trim()}); put("lessons",all); page(p); };
+  }
 }
 $("#form").onsubmit = e => { e.preventDefault(); enter(); };
-$("#exit").onclick = () => {
-  $("#cabinet").classList.add("hidden");
-  $("#login").classList.remove("hidden");
-};
+$("#exit").onclick = () => { $("#cabinet").classList.add("hidden"); $("#login").classList.remove("hidden"); };
 $("#theme").onclick = () => {
   document.body.classList.toggle("dark");
   localStorage.setItem("diaryTheme", document.body.classList.contains("dark") ? "dark" : "light");
