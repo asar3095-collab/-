@@ -110,16 +110,10 @@ function scheduleList(list) {
  if(!list.length)return empty("Расписание пока не составлено","Для вашего класса и группы уроков пока нет.");
  return '<div class="card">'+list.map(l=>'<div class="row"><b>'+safe(l.day)+' · '+safe(l.time)+'</b><br>'+safe(l.className)+' · '+safe(l.group||"Весь класс")+' — '+safe(l.subject)+'<br><span class="muted">Учитель: '+safe(l.teacher||"Не указан")+'</span></div>').join("")+"</div>";
 }
-function markFromPoints(points) {
- const n=Number(points);
- if(n>=90)return 5;
- if(n>=70)return 4;
- if(n>=50)return 3;
- return 2;
-}
+function markFromPoints(points) { return Number(points); }
 function finalForm() {
  if(!teacherClasses().length)return empty("Сначала добавьте класс","Создайте класс и внесите список учеников.");
- return '<div class="card"><h3>Выставить итоговую оценку</h3><form id="finalForm"><label>Класс</label><select id="fClass">'+classOptions()+'</select><label>Ученик</label><select id="fStudent"></select><label>Предмет</label><input id="fSubject" required placeholder="Например, математика"><label>Период</label><select id="fPeriod"><option>1 четверть</option><option>2 четверть</option><option>3 четверть</option><option>4 четверть</option><option>1 полугодие</option><option>2 полугодие</option><option>Годовая</option></select><label>Баллы (из 100)</label><input id="fPoints" type="number" min="0" max="100" step="1" required placeholder="Например, 85"><p id="fGradePreview" class="muted">Введите баллы, чтобы рассчитать итоговую оценку.</p><small>Шкала: 0–49 = 2 · 50–69 = 3 · 70–89 = 4 · 90–100 = 5</small><button class="save" type="submit">Сохранить итог</button></form></div>';
+ return '<div class="card"><h3>Выставить итоговую оценку</h3><form id="finalForm"><label>Класс</label><select id="fClass">'+classOptions()+'</select><label>Ученик</label><select id="fStudent"></select><label>Предмет</label><input id="fSubject" required placeholder="Например, математика"><label>Период</label><select id="fPeriod"><option>1 четверть</option><option>2 четверть</option><option>3 четверть</option><option>4 четверть</option><option>1 полугодие</option><option>2 полугодие</option><option>Годовая</option></select><label>Итоговая оценка (от 0 до 100)</label><input id="fPoints" type="number" min="0" max="100" step="1" required placeholder="Например, 85"><p id="fGradePreview" class="muted">Введите итоговый результат от 0 до 100 баллов.</p><button class="save" type="submit">Сохранить итог</button></form></div>';
 }
 function page(p) {
  $("#title").textContent=p; document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));
@@ -157,14 +151,14 @@ function page(p) {
  if(p==="Итоговые оценки"&&role==="teacher"&&$("#finalForm")){
   studentOptions("fClass","fStudent");
   const pointsInput=$("#fPoints"), preview=$("#fGradePreview");
-  pointsInput.oninput=()=>{const v=pointsInput.value;if(v===""||Number(v)<0||Number(v)>100){preview.textContent="Введите число от 0 до 100.";return;}preview.textContent="Итоговая оценка: "+markFromPoints(v);};
+  pointsInput.oninput=()=>{const v=pointsInput.value;if(v===""||Number(v)<0||Number(v)>100){preview.textContent="Введите число от 0 до 100.";return;}preview.textContent="Итоговая оценка: "+v+"/100 баллов";};
   $("#finalForm").onsubmit=e=>{
    e.preventDefault();
    const points=Number(pointsInput.value);
    if(!$("#fStudent").value)return alert("Выберите ученика.");
    if(!Number.isInteger(points)||points<0||points>100)return alert("Введите целое число баллов от 0 до 100.");
    const a=finals();
-   a.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,points,maxPoints:100,mark:markFromPoints(points),teacher:name,teacherType,teacherUsername:teacherUsername(),teacherSubjects});
+   a.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,points,maxPoints:100,mark:points,teacher:name,teacherType,teacherUsername:teacherUsername(),teacherSubjects});
    put("finals",a);page(p);
   };
  }
