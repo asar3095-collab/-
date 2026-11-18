@@ -31,7 +31,7 @@ function empty(title, message) {
 }
 function gradeTable(list) {
   if (!list.length) return empty("Оценок пока нет", "Учитель ещё не добавил оценки.");
-  return '<div class="card"><div class="table-wrap"><table class="grade-table"><thead><tr><th>Класс</th><th>Ученик</th><th>Предмет</th><th>Оценка</th><th>Дата</th></tr></thead><tbody>' +
+  return '<div class="card"><div class="table-wrap"><table class="grade-table"><thead><tr><th>Класс</th><th>Ученик</th><th>Предмет</th><th>Оценка</th><th>Кто поставил</th><th>Дата</th></tr></thead><tbody>' +
     list.map(g => '<tr><td>' + safe(g.className) + '</td><td>' + safe(g.student) + '</td><td>' + safe(g.subject) + '</td><td class="grade">' + safe(g.mark) + '</td><td>' + safe(g.date || "") + "</td></tr>").join("") +
     "</tbody></table></div></div>";
 }
@@ -41,7 +41,7 @@ function homeworkList(list) {
 }
 function scheduleList(list) {
   if (!list.length) return empty("Расписание пока не составлено", "Здесь появятся уроки, когда учитель добавит расписание.");
-  return '<div class="card">' + list.map(l => '<div class="row"><b>' + safe(l.day) + " · " + safe(l.time) + '</b><br>' + safe(l.className) + " — " + safe(l.subject) + "</div>").join("") + "</div>";
+  return '<div class="card">' + list.map(l => '<div class="row"><b>' + safe(l.day) + " · " + safe(l.time) + '</b><br>' + safe(l.className) + " — " + safe(l.subject) + '<br><span class="muted">Учитель: ' + safe(l.teacher || "Не указан") + "</span></div>").join("") + "</div>";
 }
 function finalGradeForm() {
   const cs = classes();
@@ -74,7 +74,7 @@ function bindFinalForm() {
     e.preventDefault();
     if (!$("#fStudent").value) return;
     const all = finals();
-    all.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,mark:$("#fMark").value});
+    all.unshift({className:$("#fClass").value,student:$("#fStudent").value,subject:$("#fSubject").value.trim(),period:$("#fPeriod").value,mark:$("#fMark").value,teacher:name});
     put("finals", all);
     page("Итоговые оценки");
   };
@@ -103,7 +103,7 @@ function page(p) {
     } else out = gradeTable(grades());
   } else if (p === "Итоговые оценки") {
     out = role === "teacher" ? finalGradeForm() : "";
-    out += finals().length ? '<div class="card"><h3>Итоговые оценки</h3>' + finals().map(g => '<div class="row">' + safe(g.className) + ' · ' + safe(g.student) + ' · ' + safe(g.subject) + ' · ' + safe(g.period) + ' <b class="grade">' + safe(g.mark) + '</b></div>').join("") + "</div>" : empty("Итоговых оценок пока нет", "Учитель ещё не выставил итоговые оценки.");
+    out += finals().length ? '<div class="card"><h3>Итоговые оценки</h3>' + finals().map(g => '<div class="row">' + safe(g.className) + ' · ' + safe(g.student) + ' · ' + safe(g.subject) + ' · ' + safe(g.period) + ' <b class="grade">' + safe(g.mark) + '</b><br><span class="muted">Выставил: ' + safe(g.teacher || "Не указан") + '</span></div>').join("") + "</div>" : empty("Итоговых оценок пока нет", "Учитель ещё не выставил итоговые оценки.");
   } else if (p === "Домашние задания") {
     if (role === "teacher") out = '<div class="card"><h3>Добавить домашнее задание</h3><form id="taskForm"><label>Предмет</label><input id="tSubject" required><label>Задание</label><textarea id="tDescription" rows="3" required></textarea><label>Срок сдачи</label><input id="tDue" placeholder="Например, 25 ноября"><button class="save" type="submit">Добавить задание</button></form></div>';
     out += homeworkList(tasks());
@@ -128,7 +128,7 @@ function page(p) {
     bindStudentSelect("gClass","gStudent");
     $("#gradeForm").onsubmit = e => {
       e.preventDefault(); if (!$("#gStudent").value) return;
-      const all = grades(); all.unshift({className:$("#gClass").value,student:$("#gStudent").value,subject:$("#gSubject").value.trim(),mark:$("#gMark").value,date:new Date().toLocaleDateString("ru-RU")});
+      const all = grades(); all.unshift({className:$("#gClass").value,student:$("#gStudent").value,subject:$("#gSubject").value.trim(),mark:$("#gMark").value,teacher:name,date:new Date().toLocaleDateString("ru-RU")});
       put("grades", all); page("Журнал оценок");
     };
   }
@@ -137,7 +137,7 @@ function page(p) {
   }
   if (p === "Расписание" && role === "teacher" && $("#lessonForm")) {
     const lc = $("#lClass"); if (lc && !classes().length) lc.innerHTML = '<option value="">Сначала добавьте класс</option>';
-    $("#lessonForm").onsubmit = e => { e.preventDefault(); if (!$("#lClass").value) return; const all=lessons(); all.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:$("#lClass").value,subject:$("#lSubject").value.trim()}); put("lessons",all); page(p); };
+    $("#lessonForm").onsubmit = e => { e.preventDefault(); if (!$("#lClass").value) return; const all=lessons(); all.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:$("#lClass").value,subject:$("#lSubject").value.trim(),teacher:name}); put("lessons",all); page(p); };
   }
 }
 $("#form").onsubmit = e => { e.preventDefault(); enter(); };
