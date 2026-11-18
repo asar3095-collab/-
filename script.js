@@ -11,7 +11,8 @@ const lessons = () => get("lessons");
 const normClass = c => ({...c, groups:Array.isArray(c.groups)&&c.groups.length?c.groups:["Общая"], students:(c.students||[]).map(s=>typeof s==="string"?{name:s,group:"Общая"}:s)});
 const allClasses = () => classes().map(normClass);
 const classOptions = (selected="") => allClasses().map(c=>'<option value="'+safe(c.name)+'"'+(c.name===selected?" selected":"")+'>'+safe(c.name)+'</option>').join("");
-const myTeacherRecord = item => item.teacher === name && (!item.teacherType || item.teacherType === teacherType);\nconst currentStudent = () => allClasses().flatMap(c=>c.students.map(s=>({...s,className:c.name}))).find(s=>s.name.toLowerCase()===name.toLowerCase());
+const myTeacherRecord = item => item.teacher === name && (!item.teacherType || item.teacherType === teacherType);
+const currentStudent = () => allClasses().flatMap(c=>c.students.map(s=>({...s,className:c.name}))).find(s=>s.name.toLowerCase()===name.toLowerCase());
 const studentMatches = item => { const s=currentStudent(); if(!s) return false; return item.className===s.className && (!item.group || item.group==="Весь класс" || item.group===s.group) && (!item.student || item.student.toLowerCase()===name.toLowerCase()); };
 function enter() {
  name=$("#name").value.trim(); role=$("#role").value; teacherType=role==="teacher"?$("#teacherType").value:""; teacherSubjects=role==="teacher"?$("#teacherSubjects").value.split(",").map(x=>x.trim()).filter(Boolean):[]; if(!name)return;
@@ -50,7 +51,7 @@ function finalForm() {
 function page(p) {
  $("#title").textContent=p; document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));
  let out=""; const mine=currentStudent();
- if(p==="Главная") out='<div class="card"><h3>Здравствуйте, '+safe(name)+'!</h3><p class="muted">'+(role==="teacher"?"Профиль: '+safe(teacherType)+'. Ваши записи отображаются отдельно от записей других учителей. Предметы: '+safe(teacherSubjects.join(", ")||"укажите при создании записи")+'":mine?"Ваш класс: "+safe(mine.className)+", группа: "+safe(mine.group)+".":"Ваше имя пока не найдено в списках учеников. Попросите учителя добавить вас в свой класс.")+'</p></div>';
+ if(p==="Главная") out='<div class="card"><h3>Здравствуйте, '+safe(name)+'!</h3><p class="muted">'+(role==="teacher"?"Профиль: "+safe(teacherType)+". Ваши записи отображаются отдельно от записей других учителей. Предметы: "+safe(teacherSubjects.join(", ")||"не указаны"):mine?"Ваш класс: "+safe(mine.className)+", группа: "+safe(mine.group)+".":"Ваше имя пока не найдено в списках учеников. Попросите учителя добавить вас в свой класс.")+'</p></div>';
  else if(p==="Мои классы"&&role==="teacher") {
   out='<div class="card"><h3>Добавить класс и группы</h3><form id="classForm"><label>Название класса</label><input id="className" required placeholder="Например, 5 А"><label>Названия групп (через запятую)</label><input id="groupNames" placeholder="1 группа, 2 группа"><label>Ученики (каждый с новой строки; формат: Имя Фамилия | группа)</label><textarea id="studentNames" rows="6" placeholder="Анна Иванова | 1 группа&#10;Иван Петров | 2 группа"></textarea><button class="save">Создать класс</button></form></div>';
   out+=allClasses().map(c=>'<div class="card"><b>'+safe(c.name)+'</b><p>Группы: '+c.groups.map(safe).join(", ")+'</p>'+c.students.map(s=>'<div class="row">'+safe(s.name)+' <span class="muted">— '+safe(s.group)+'</span></div>').join("")+'</div>').join("")||empty("Классов пока нет","Создайте первый класс.");
@@ -75,7 +76,7 @@ function page(p) {
  if(p==="Домашние задания"&&role==="teacher"&&$("#taskForm")){studentOptions("tClass","tUnused","tGroup");$("#tUnused").remove();$("#taskForm").onsubmit=e=>{e.preventDefault();const a=tasks();a.unshift({className:$("#tClass").value,group:$("#tGroup").value,subject:$("#tSubject").value.trim(),description:$("#tDescription").value.trim(),due:$("#tDue").value.trim(),teacher:name,teacherType,teacherSubjects});put("tasks",a);page(p);};}
  if(p==="Расписание"&&role==="teacher"&&$("#lessonForm")){const c=$("#lClass"),g=$("#lGroup");const fill=()=>g.innerHTML=groupOptions(c.value);c.onchange=fill;fill();$("#lessonForm").onsubmit=e=>{e.preventDefault();const a=lessons();a.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:c.value,group:g.value,subject:$("#lSubject").value.trim(),teacher:name,teacherType,teacherSubjects});put("lessons",a);page(p);};}
 }
-$("#form").onsubmit=e=>{e.preventDefault();enter();};
+$("#role").onchange=()=>$("#teacherFields").classList.toggle("hidden",$("#role").value!=="teacher");\n$("#form").onsubmit=e=>{e.preventDefault();enter();};
 $("#exit").onclick=()=>{$("#cabinet").classList.add("hidden");$("#login").classList.remove("hidden");};
 $("#theme").onclick=()=>{document.body.classList.toggle("dark");localStorage.setItem("diaryTheme",document.body.classList.contains("dark")?"dark":"light");};
 if(localStorage.getItem("diaryTheme")==="dark")document.body.classList.add("dark");
