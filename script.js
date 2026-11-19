@@ -36,6 +36,7 @@ const myTeacherRecord = item => item.teacherUsername ? item.teacherUsername===te
 const currentStudent = () => allClasses().flatMap(c=>c.students.map(s=>({...s,className:c.name}))).find(s=>s.name.toLowerCase()===name.toLowerCase());
 const studentMatches = item => { const s=currentStudent(); if(!s || !item.student) return false; return item.className===s.className && (!item.group || item.group==="Весь класс" || item.group===s.group) && item.student.trim().toLowerCase()===name.trim().toLowerCase(); };
 const homeworkMatchesStudent = item => { const student=currentStudent(); if(!student) return false; return item.className===student.className && (!item.group || item.group==="Весь класс" || item.group===student.group); };
+const scheduleMatchesStudent = item => { const student=currentStudent(); if(!student) return false; return item.className===student.className && (!item.group || item.group==="Весь класс" || item.group===student.group); };
 function openCabinet() {
  $("#login").classList.add("hidden"); $("#cabinet").classList.remove("hidden");
  $("#who").textContent=name+" · "+(role==="teacher"?teacherType:"Ученик");
@@ -147,7 +148,7 @@ function page(p) {
   out+='<div class="card"><h3>Список контрольных</h3>'+(list.length?list.map(t=>'<div class="row"><b>'+safe(t.date)+' · '+safe(t.subject)+'</b><br>'+safe(t.className)+' · '+safe(t.group||"Весь класс")+'<br>Тема: '+safe(t.topic)+'<br>Формат: '+safe(t.format)+'<br><span class="muted">Учитель: '+safe(t.teacher)+'</span></div>').join(""):'<p class="muted">Контрольные пока не добавлены.</p>')+'</div>';
  } else if(p==="Расписание") {
   if(role==="teacher")out='<div class="card"><h3>Добавить урок</h3><form id="lessonForm"><label>День недели</label><select id="lDay"><option>Понедельник</option><option>Вторник</option><option>Среда</option><option>Четверг</option><option>Пятница</option><option>Суббота</option></select><label>Время</label><input id="lTime" required placeholder="08:30"><label>Класс</label><select id="lClass">'+classOptions()+'</select><label>Группа</label><select id="lGroup"></select><label>Предмет</label><input id="lSubject" required><button class="save">Добавить урок</button></form></div>';
-  const visibleClassNames=role==="teacher"?teacherClasses().map(c=>c.name):[mine?.className].filter(Boolean); const list=lessons().filter(l=>visibleClassNames.includes(l.className)&&(role==="teacher"||studentMatches(l))); out+=scheduleList(list);
+  const visibleClassNames=role==="teacher"?teacherClasses().map(c=>c.name):[mine?.className].filter(Boolean); const list=lessons().filter(l=>visibleClassNames.includes(l.className)&&(role==="teacher"||scheduleMatchesStudent(l))); out+=scheduleList(list);
  }
  $("#content").innerHTML=out;
  if(p==="Мои классы"&&role==="teacher") {
