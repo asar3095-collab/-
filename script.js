@@ -40,7 +40,7 @@ const scheduleMatchesStudent = item => { const student=currentStudent(); if(!stu
 function openCabinet() {
  $("#login").classList.add("hidden"); $("#cabinet").classList.remove("hidden");
  $("#who").textContent=name+" · "+(role==="teacher"?teacherType:"Ученик");
- const menus=role==="teacher"?["Главная","Мои классы","Журнал оценок","Итоговые оценки","Замечания","Домашние задания","Расписание","Контрольные"]:["Главная","Мои оценки","Итоговые оценки","Замечания","Домашние задания","Расписание","Контрольные"];
+ const menus=role==="teacher"?["Главная","Мои классы","Журнал оценок","Итоговые оценки","Замечания","Домашние задания","Расписание","Контрольные","Библиотека учителя"]:["Главная","Мои оценки","Итоговые оценки","Замечания","Домашние задания","Расписание","Контрольные"];
  $("#nav").innerHTML=menus.map(x=>'<button data-page="'+x+'">'+x+"</button>").join("");
  document.querySelectorAll("#nav button").forEach(btn=>btn.onclick=()=>page(btn.dataset.page)); page("Главная");
 }
@@ -146,7 +146,16 @@ function page(p) {
   }
   const list=role==="teacher"?tests().filter(myTeacherRecord):tests().filter(studentMatches);
   out+='<div class="card"><h3>Список контрольных</h3>'+(list.length?list.map(t=>'<div class="row"><b>'+safe(t.date)+' · '+safe(t.subject)+'</b><br>'+safe(t.className)+' · '+safe(t.group||"Весь класс")+'<br>Тема: '+safe(t.topic)+'<br>Формат: '+safe(t.format)+'<br><span class="muted">Учитель: '+safe(t.teacher)+'</span></div>').join(""):'<p class="muted">Контрольные пока не добавлены.</p>')+'</div>';
- } else if(p==="Расписание") {
+ } else if(p==="Библиотека учителя"&&role==="teacher") {
+  const library=get("teacherLibrary");
+  const subjects=["Математика","Русский язык","Литературное чтение","Окружающий мир","Английский язык","Музыка","Физкультура","Другое"];
+  out='<div class="library-hero"><div><span class="library-kicker">МЕТОДИЧЕСКИЙ КАБИНЕТ</span><h2>Библиотека учителя</h2><p>Создавайте собственные материалы, уроки и задания для своей работы.</p></div><div class="library-mark">✦</div></div>'+
+  '<div class="library-grid">'+subjects.map((subject,i)=>{const count=library.filter(x=>x.subject===subject).length;return '<div class="library-subject"><div class="library-icon">'+["🔢","🔤","📖","🌍","🇬🇧","🎵","⚽","✏️"][i]+'</div><b>'+subject+'</b><span>'+count+' материалов</span></div>';}).join("")+'</div>'+
+  '<div class="card library-editor"><div class="library-kicker">НОВЫЙ МАТЕРИАЛ</div><h3>Добавить в библиотеку</h3><form id="libraryForm"><label>Предмет</label><select id="libSubject">'+subjects.map(x=>'<option>'+x+'</option>').join("")+'</select><label>Тип материала</label><select id="libType"><option>Урок</option><option>Учебник</option><option>Рабочая тетрадь</option><option>Задание</option><option>Контрольная работа</option><option>Памятка</option></select><label>Название</label><input id="libTitle" required placeholder="Например, Сложение в пределах 10"><label>Тема и объяснение</label><textarea id="libBody" rows="5" required placeholder="Напишите материал, правила или задания..."></textarea><button class="save">＋ Сохранить материал</button></form></div>'+
+  '<div class="library-materials"><div class="library-list-head"><h3>Мои материалы</h3><span>'+library.length+' всего</span></div>'+
+  (library.length?library.map((item,index)=>'<div class="library-material"><div class="library-material-icon">📘</div><div class="library-material-info"><span>'+safe(item.subject)+' · '+safe(item.type)+'</span><b>'+safe(item.title)+'</b><p>'+safe(item.body)+'</p></div><button class="small danger" data-delete-library="'+index+'">Удалить</button></div>').join(""):empty("Библиотека пока пуста","Добавьте первый урок, учебник или задание."))+'</div>';
+ }
+ else if(p==="Расписание") {
   if(role==="teacher")out='<div class="card"><h3>Добавить урок</h3><form id="lessonForm"><label>День недели</label><select id="lDay"><option>Понедельник</option><option>Вторник</option><option>Среда</option><option>Четверг</option><option>Пятница</option><option>Суббота</option></select><label>Время</label><input id="lTime" required placeholder="08:30"><label>Класс</label><select id="lClass">'+classOptions()+'</select><label>Группа</label><select id="lGroup"></select><label>Предмет</label><input id="lSubject" required><button class="save">Добавить урок</button></form></div>';
   const visibleClassNames=role==="teacher"?teacherClasses().map(c=>c.name):[mine?.className].filter(Boolean); const list=lessons().filter(l=>visibleClassNames.includes(l.className)&&(role==="teacher"||scheduleMatchesStudent(l))); out+=scheduleList(list);
  }
@@ -190,6 +199,10 @@ function page(p) {
  if(p==="Замечания"&&role==="teacher"&&$("#remarkForm")){studentOptions("rClass","rStudent","rGroup");$("#remarkForm").onsubmit=e=>{e.preventDefault();const student=$("#rStudent").value,textValue=$("#rText").value.trim();if(!student||!textValue)return;const a=remarks();a.unshift({className:$("#rClass").value,group:$("#rGroup").value,student,text:textValue,teacher:name,teacherType,teacherUsername:teacherUsername(),date:new Date().toLocaleDateString("ru-RU")});put("remarks",a);page(p);};}
  if(p==="Домашние задания"&&role==="teacher"&&$("#taskForm")){const c=$("#tClass"),g=$("#tGroup");const fill=()=>g.innerHTML=groupOptions(c.value,true);c.onchange=fill;fill();$("#taskForm").onsubmit=e=>{e.preventDefault();const subject=$("#tSubject").value.trim(),description=$("#tDescription").value.trim();if(!c.value||!subject||!description)return alert("Выберите класс и заполните предмет и задание.");const a=tasks();a.unshift({className:c.value,group:g.value||"Весь класс",subject,description,due:$("#tDue").value.trim(),teacher:name,teacherType,teacherUsername:teacherUsername(),teacherSubjects});put("tasks",a);page(p);};}
  if(p==="Контрольные"&&role==="teacher"&&$("#testForm")){const c=$("#xClass"),g=$("#xGroup");const fill=()=>g.innerHTML=groupOptions(c.value,true);c.onchange=fill;fill();$("#testForm").onsubmit=e=>{e.preventDefault();const a=tests();a.unshift({className:c.value,group:g.value,subject:$("#xSubject").value.trim(),topic:$("#xTopic").value.trim(),date:$("#xDate").value,format:$("#xFormat").value,teacher:name,teacherType,teacherUsername:teacherUsername()});put("tests",a);page(p);};}
+ if(p==="Библиотека учителя"&&role==="teacher"&&$("#libraryForm")){
+  $("#libraryForm").onsubmit=e=>{e.preventDefault();const a=get("teacherLibrary");a.unshift({subject:$("#libSubject").value,type:$("#libType").value,title:$("#libTitle").value.trim(),body:$("#libBody").value.trim(),teacher:name,teacherUsername:teacherUsername(),createdAt:new Date().toLocaleDateString("ru-RU")});put("teacherLibrary",a);page(p);};
+  document.querySelectorAll("[data-delete-library]").forEach(button=>button.onclick=()=>{const index=Number(button.dataset.deleteLibrary),a=get("teacherLibrary");if(!confirm("Удалить этот материал из библиотеки?"))return;a.splice(index,1);put("teacherLibrary",a);page(p);});
+ }
  if(p==="Расписание"&&role==="teacher"&&$("#lessonForm")){const c=$("#lClass"),g=$("#lGroup");const fill=()=>g.innerHTML=groupOptions(c.value);c.onchange=fill;fill();$("#lessonForm").onsubmit=e=>{e.preventDefault();const a=lessons();a.push({day:$("#lDay").value,time:$("#lTime").value.trim(),className:c.value,group:g.value,subject:$("#lSubject").value.trim(),teacher:name,teacherType,teacherSubjects});put("lessons",a);page(p);};}
 }
 function updateAuthFields() {
