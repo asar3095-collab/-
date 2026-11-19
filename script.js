@@ -35,6 +35,7 @@ const classOptions = (selected="") => (role==="teacher"?teacherClasses():allClas
 const myTeacherRecord = item => item.teacherUsername ? item.teacherUsername===teacherUsername() : item.teacher === name && (!item.teacherType || item.teacherType === teacherType);
 const currentStudent = () => allClasses().flatMap(c=>c.students.map(s=>({...s,className:c.name}))).find(s=>s.name.toLowerCase()===name.toLowerCase());
 const studentMatches = item => { const s=currentStudent(); if(!s || !item.student) return false; return item.className===s.className && (!item.group || item.group==="Весь класс" || item.group===s.group) && item.student.trim().toLowerCase()===name.trim().toLowerCase(); };
+const homeworkMatchesStudent = item => { const student=currentStudent(); if(!student) return false; return item.className===student.className && (!item.group || item.group==="Весь класс" || item.group===student.group); };
 function openCabinet() {
  $("#login").classList.add("hidden"); $("#cabinet").classList.remove("hidden");
  $("#who").textContent=name+" · "+(role==="teacher"?teacherType:"Ученик");
@@ -137,7 +138,7 @@ function page(p) {
   out+='<div class="card"><h3>Список замечаний</h3>'+(list.length?list.map(r=>'<div class="row"><b>'+safe(r.className)+' · '+safe(r.student)+'</b><br>'+safe(r.text)+'<br><span class="muted">Учитель: '+safe(r.teacher)+' · '+safe(r.date)+'</span></div>').join(""):'<p class="muted">Замечаний пока нет.</p>')+'</div>';
  } else if(p==="Домашние задания") {
   if(role==="teacher")out='<div class="card"><h3>Добавить домашнее задание</h3><form id="taskForm"><label>Класс</label><select id="tClass">'+classOptions()+'</select><label>Группа</label><select id="tGroup"></select><label>Предмет</label><input id="tSubject" required><label>Задание</label><textarea id="tDescription" rows="3" required></textarea><label>Срок сдачи</label><input id="tDue" placeholder="Например, 25 ноября"><button class="save">Добавить задание</button></form></div>';
-  const list=role==="teacher"?tasks().filter(myTeacherRecord):tasks().filter(studentMatches); out+=homeworkList(list);
+  const list=role==="teacher"?tasks().filter(myTeacherRecord):tasks().filter(homeworkMatchesStudent); out+=homeworkList(list);
  } else if(p==="Контрольные") {
   if(role==="teacher") {
    out=teacherClasses().length?'<div class="card"><h3>Добавить контрольную</h3><form id="testForm"><label>Класс</label><select id="xClass">'+classOptions()+'</select><label>Группа</label><select id="xGroup"></select><label>Предмет</label><input id="xSubject" required placeholder="Например, математика"><label>Тема контрольной</label><input id="xTopic" required placeholder="Например, дроби"><label>Дата проведения</label><input id="xDate" type="date" required><label>Формат</label><select id="xFormat"><option>Письменная работа</option><option>Тест</option><option>Самостоятельная работа</option><option>Устный опрос</option></select><button class="save">Добавить в список</button></form></div>':empty("Нет классов","Сначала добавьте класс.");
