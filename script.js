@@ -101,7 +101,8 @@ function studentOptions(classId,studentId,groupId) {
 }
 function gradeTable(list) {
  if(!list.length)return empty("Оценок пока нет","Учитель ещё не добавил оценки.");
- return '<div class="card"><div class="table-wrap"><table class="grade-table"><thead><tr><th>Класс</th><th>Ученик</th><th>Предмет</th><th>Оценка</th><th>Кто поставил</th><th>Дата</th></tr></thead><tbody>'+list.map(g=>'<tr><td>'+safe(g.className)+'</td><td>'+safe(g.student)+'</td><td>'+safe(g.subject)+'</td><td class="grade">'+safe(g.mark)+'</td><td>'+safe(g.teacher||"Не указано")+'</td><td>'+safe(g.date||"")+'</td></tr>').join("")+"</tbody></table></div></div>";
+ const actions=role==="teacher";
+ return '<div class="card"><div class="table-wrap"><table class="grade-table"><thead><tr><th>Класс</th><th>Ученик</th><th>Предмет</th><th>Оценка</th><th>Кто поставил</th><th>Дата</th>'+(actions?'<th>Действия</th>':"")+'</tr></thead><tbody>'+list.map(g=>{const index=grades().indexOf(g);return '<tr><td>'+safe(g.className)+'</td><td>'+safe(g.student)+'</td><td>'+safe(g.subject)+'</td><td class="grade">'+safe(g.mark)+'</td><td>'+safe(g.teacher||"Не указано")+'</td><td>'+safe(g.date||"")+'</td>'+(actions?'<td><button type="button" class="small" data-edit-grade="'+index+'">Изменить</button> <button type="button" class="small danger" data-delete-grade="'+index+'">Удалить</button></td>':"")+'</tr>';}).join("")+"</tbody></table></div></div>";
 }
 function homeworkList(list) {
  if(!list.length)return empty("Заданий пока нет","Для вашего класса и группы заданий пока нет.");
@@ -153,6 +154,23 @@ function page(p) {
   $("#joinClassForm").onsubmit=e=>{e.preventDefault();const code=$("#joinClassCode").value.trim().toUpperCase();const cs=classes();const c=cs.find(x=>x.inviteCode&&x.inviteCode.toUpperCase()===code);if(!c)return alert("Класс с таким кодом не найден в этом браузере.");c.teacherUsernames=Array.isArray(c.teacherUsernames)?c.teacherUsernames:[c.teacherUsername].filter(Boolean);if(!c.teacherUsernames.includes(teacherUsername()))c.teacherUsernames.push(teacherUsername());put("classes",cs);alert("Вы подключились к классу "+c.name+". Теперь вам доступны ученики и общее расписание.");page(p);};
  }
  if(p==="Журнал оценок"&&role==="teacher"&&$("#gradeForm")){studentOptions("gClass","gStudent","gGroup");$("#gradeForm").onsubmit=e=>{e.preventDefault();if(!$("#gStudent").value)return;const a=grades();a.unshift({className:$("#gClass").value,group:$("#gGroup").value,student:$("#gStudent").value,subject:$("#gSubject").value.trim(),mark:$("#gMark").value,teacher:name,teacherType,teacherUsername:teacherUsername(),teacherSubjects,date:new Date().toLocaleDateString("ru-RU")});put("grades",a);page(p);};}
+ if(p==="Журнал оценок"&&role==="teacher"){
+  document.querySelectorAll("[data-edit-grade]").forEach(button=>button.onclick=()=>{
+   const index=Number(button.dataset.editGrade), a=grades(), item=a[index];
+   if(!item||!myTeacherRecord(item))return alert("Можно изменять только свои оценки.");
+   const next=prompt("Введите новую оценку: 2, 3, 4, 5 или Н",String(item.mark));
+   if(next===null)return;
+   const mark=next.trim().toUpperCase();
+   if(!["2","3","4","5","Н"].includes(mark))return alert("Допустимые значения: 2, 3, 4, 5 или Н.");
+   item.mark=mark; item.editedAt=new Date().toLocaleString("ru-RU"); put("grades",a); page(p);
+  });
+  document.querySelectorAll("[data-delete-grade]").forEach(button=>button.onclick=()=>{
+   const index=Number(button.dataset.deleteGrade), a=grades(), item=a[index];
+   if(!item||!myTeacherRecord(item))return alert("Можно удалять только свои оценки.");
+   if(!confirm("Удалить эту оценку?"))return;
+   a.splice(index,1); put("grades",a); page(p);
+  });
+ }
  if(p==="Итоговые оценки"&&role==="teacher"&&$("#finalForm")){
   studentOptions("fClass","fStudent");
   const pointsInput=$("#fPoints"), preview=$("#fGradePreview");
